@@ -7,11 +7,13 @@ def plot_classification(x: np.ndarray, y: np.ndarray, labels: np.ndarray, a=None
         delta = 0.025
         x_vals = np.arange(min(x), max(x), delta)
         y_vals = np.arange(min(y), max(y), delta)
-        x, y = np.meshgrid(x_vals, y_vals)
-        z = a * x + b * y + c
-        cs = plt.contour(x, y, z, 6, colors='k')
+        xx, yy = np.meshgrid(x_vals, y_vals)
+        z = a * xx + b * yy + c
+        cs = plt.contour(xx, yy, z, levels=6, colors='k')
         plt.clabel(cs, fontsize=9, inline=1)
-    plt.scatter(x, y, c=labels)
+
+    plt.scatter(x, y, c=labels, cmap='bwr')
+    plt.title('Klasyfikacja SVM')
     plt.show()
 
 
