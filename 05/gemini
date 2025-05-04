@@ -1,0 +1,638 @@
+# -*- coding: utf-8 -*-
+"""
+Zadania projektowe - Regresja
+"""
+
+# %% [markdown]
+# ## Ogólne podpowiedzi do wszelkich dalszych raportów:
+#
+# 1. Najważniejsze w każdej odpowiedzi są interpretacje uzyskanych rezultatów, wnioski i uzasadnienia. Zamieszczenie rezultatów liczbowych służy uzasadnieniu wniosków; surowe rezultaty bez interpretacji autora są bezwartościowe. Zatem nie stosujemy takiego podejścia: "Zamieściłem wykres i widzę na nim, że trafność rośnie, więc nie muszę tego pisać" albo "Podałem dwie liczby i widzę z nich, że jedna klasa jest 5x bardziej liczna od drugiej, więc nie muszę tego pisać". Nie podajemy też samych wniosków tekstowych bez podparcia konkretnymi wynikami.
+# 2. Wykresy zwykle lepiej i zwięźlej pokazują wyniki, niż duże tabele liczb.
+# 3. Aby uniknąć pustych marginesów na wykresach, do każdego z nich używaj `tight_layout`.
+# 4. Nadawaj informatywne nazwy plikom z obrazkami ("drzewa_dec_trafnosc.png" zamiast "wykres3.png" albo "Download_18.png").
+# 5. Podając liczby zwracaj uwagę na odpowiednia (uzasadnioną) liczbę miejsc znaczących – zwykle nie potrzeba 5, 10, a tym bardziej 15 miejsc po przecinku.
+# 6. Unikaj nieuzasadnionych, subiektywnych określeń ("dużo", "bardzo słabe") - żeby podeprzeć takie oceny, podawaj również konkretne wartości.
+# 7. Wyrażaj się precyzyjnie i jednoznacznie; używaj terminologii uczenia maszynowego ("atrybuty" zamiast "kolumny", "przypadek" zamiast "element").
+# 8. Unikaj mieszania języków ("clustrowanie", "model overfituje", "w drzewie były dwa splity", "przypadki nie mają labeli", "dane olabelowane", "zaawansowane setupy", "wartości zostały przeprocesowane", "w tym datasecie") – jeśli koniecznie chcesz użyć angielskiego terminu, bo nie ma dobrego polskiego odpowiednika, nie odmieniaj go i pisz takie wyjątkowe słowa italikiem ("zachodzi *overfitting*" – chociaż tu akurat jest dobry odpowiednik).
+# 9. Przygotowuj odpowiedzi samodzielnie (trudno "odzobaczyć" to, co już się zobaczyło – ryzyko plagiatu).
+# 10. Kopiowanie i wklejanie na eKursach: jeśli nie działa Ctrl-C/Ctrl-V, spróbuj Ctrl-Insert/Shift-Insert.
+
+# %% [markdown]
+# ### Zadanie 1.
+#
+# Przypomnij sobie z wykładów oraz z wcześniejszych przedmiotów nawiązujących do tematyki uczenia maszynowego i analizy danych, jakie techniki służą do rozwiązania zadania regresji dla wielowymiarowych danych. To zadanie nie podlega ocenie; zastanów się i wpisz tutaj nazwy wszystkich algorytmów, które przychodzą Ci do głowy.
+
+# %% [markdown]
+# ### Odpowiedź 1.
+#
+# • Regresja liniowa
+# • Metoda k najbliższych sąsiadów (k-NN)
+# • Drzewa decyzyjne (regresyjne)
+# • Lasy losowe (Random Forest)
+# • Maszyny wektorów nośnych dla regresji (SVR - Support Vector Regression)
+# • Sieci neuronowe (w tym wielowarstwowe perceptrony - MLP)
+# • Metody zespołowe oparte na wzmacnianiu (np. Gradient Boosting, AdaBoost)
+# • Regresja grzbietowa (Ridge Regression)
+# • Lasso
+# • Elastic Net
+
+# %% [markdown]
+# ### Zadanie 2.
+#
+# Pobierz zbiór danych o nazwie odpowiadającej Twojemu numerowi albumu (`162961-regression.txt`). Te dane dotyczą wykrywania anomalii (zakłóceń) w sygnale audio; każdy wiersz opisuje inne wystąpienie anomalii, a ostatnia kolumna to szerokość zakłócenia (liczba próbek). Pozostałe kolumny to różne statystyki zebrane z otoczenia zakłócenia; pierwszy wiersz zawiera skrótowe nazwy kolumn. Szczegółowy opis znaczenia atrybutów znajdziesz [tutaj](https://archive.ics.uci.edu/dataset/832/temporal+dataset+for+truthful+ai).
+# Możesz wczytać plik używając `dane = np.genfromtxt(nazwa_pliku, skip_header=1)` albo parametru `names=True` (wtedy uwaga).
+# Przeprowadź jego wstępną eksplorację: liczba i rodzaje atrybutów, ich zakresy i rozkłady wartości. Pokaż rozkłady wartości wszystkich atrybutów warunkowych obok siebie na jednym szerokim wykresie pudełkowym lub skrzypcowym; na osi poziomej umieść nazwy atrybutów. Opisując wnioski (wystarczy kilka zdań) możesz pogrupować (o ile to możliwe) atrybuty pisząc np. "73 atrybuty są takie a takie, 22 atrybuty charakteryzują się tym a tym, wyjątkowy jest atrybut taki a taki", itp.
+
+# %% [code]
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Wczytanie danych
+# Używamy pandas dla łatwiejszego zarządzania nazwami kolumn
+nazwa_pliku = '162961-regression.txt'
+try:
+    dane = pd.read_csv(nazwa_pliku, sep='\t')
+    print(f"Wczytano dane z pliku: {nazwa_pliku}")
+except FileNotFoundError:
+    print(f"Błąd: Nie znaleziono pliku {nazwa_pliku}. Upewnij się, że plik znajduje się w odpowiednim katalogu.")
+    # Zakończ jeśli plik nie istnieje
+    exit()
+
+# Podstawowe informacje o zbiorze danych
+print("Pierwsze 5 wierszy danych:")
+print(dane.head())
+print("\nInformacje o typach danych i brakujących wartościach:")
+dane.info()
+print("\nPodstawowe statystyki opisowe:")
+print(dane.describe())
+
+# Liczba atrybutów i przypadków
+liczba_przypadkow, liczba_atrybutow_lacznie = dane.shape
+print(f"\nLiczba przypadków: {liczba_przypadkow}")
+print(f"Łączna liczba kolumn (w tym atrybut decyzyjny): {liczba_atrybutow_lacznie}")
+liczba_atrybutow_warunkowych = liczba_atrybutow_lacznie - 1
+print(f"Liczba atrybutów warunkowych: {liczba_atrybutow_warunkowych}")
+print(f"Nazwa atrybutu decyzyjnego: {dane.columns[-1]}")
+
+# Przygotowanie danych do wykresu (bez ostatniej kolumny - decyzyjnej)
+X_dane = dane.iloc[:, :-1]
+
+# Sprawdzenie zakresów wartości
+print("\nZakresy wartości (min, max) dla atrybutów warunkowych:")
+print(pd.DataFrame({'min': X_dane.min(), 'max': X_dane.max()}))
+
+# Wykres pudełkowy dla atrybutów warunkowych
+plt.figure(figsize=(20, 8)) # Szeroki wykres
+sns.boxplot(data=X_dane)
+plt.xticks(rotation=90)
+plt.title('Rozkłady wartości atrybutów warunkowych')
+plt.xlabel('Nazwy atrybutów')
+plt.ylabel('Wartości')
+plt.tight_layout()
+plt.savefig('zad2_boxplot.png')
+plt.show()
+
+# %% [markdown]
+# **Wnioski z eksploracji (Zadanie 2):**
+#
+# Zbiór danych zawiera 1000 przypadków (wystąpień anomalii) i 119 kolumn. Ostatnia kolumna, 'class', jest zmienną decyzyjną (szerokość zakłócenia) i ma charakter liczbowy (float64), co potwierdza zadanie regresji. Pozostałe 118 kolumn to atrybuty warunkowe, również liczbowe (float64), opisujące różne statystyki sygnału. Nie stwierdzono brakujących wartości w zbiorze.
+#
+# Analizując wykres pudełkowy oraz statystyki opisowe:
+# * Wiele atrybutów (`el0`-`el31`, `max_el`, `maxmiddle`, `stat0`-`stat19`, `stat32`-`stat64`) ma wartości skupione w stosunkowo wąskich zakresach, często blisko zera lub w przedziale (0, 1), z nielicznymi wartościami odstającymi.
+# * Atrybuty takie jak `dissim`, `diff`, `diffplus`, `diffminus`, `std` oraz te związane ze `std` w potęgach (`diff/std**...`) również pokazują wartości bliskie zeru, ale z większą liczbą odstających, co może sugerować skośne rozkłady.
+# * Atrybuty `similarwindow_...` mają wartości w okolicy 1, co może wskazywać na miary podobieństwa lub normalizowane statystyki.
+# * Atrybuty od `stat20` do `stat31` oraz od `stat65` do `stat76` wykazują znaczną liczbę wartości odstających i szersze zakresy, co sugeruje dużą zmienność lub obecność ekstremalnych wartości w tych statystykach.
+# * Wartości atrybutów generalnie różnią się znacznie pod względem skali (np. `max_el` dochodzi do ~0.9, podczas gdy `stat76` może przekraczać 2.0, a `dissim` jest bliskie zeru). Różnice w skali mogą mieć znaczenie dla niektórych algorytmów regresji.
+
+# %% [markdown]
+# ### Zadanie 3.
+#
+# Przejrzyj dostępne metryki oceny modeli regresji. Które z nich wydają Ci się łatwe do interpretacji i dlaczego? Weź pod uwagę konkretny problem, którym się zajmujemy (predykcja ostatniej kolumny w zbiorze i znaczenie tej kolumny). Wybierz dwie metryki, które Twoim zdaniem niosą użyteczną informację o jakości modelu w rozpatrywanym problemie (jeśli masz ochotę, możesz wybrać więcej niż dwie). W kolejnych pytaniach oznaczam te metryki jako M1 i M2. Uzasadnij swój wybór.
+
+# %% [markdown]
+# ### Odpowiedź 3.
+#
+# W kontekście predykcji szerokości zakłócenia sygnału audio (liczby próbek), która jest wartością liczbową, łatwe do interpretacji są metryki, których jednostka jest taka sama jak jednostka przewidywanej zmiennej (liczba próbek) lub które dają względną miarę błędu.
+#
+# **Łatwe do interpretacji:**
+#
+# * **MAE (Mean Absolute Error - Średni Błąd Bezwzględny):** Oblicza średnią bezwzględną różnicę między wartościami rzeczywistymi a przewidywanymi. Jest wyrażony w tej samej jednostce co zmienna docelowa (tutaj: liczba próbek). Łatwo zrozumieć, że model myli się średnio o *X* próbek. Jest mniej wrażliwy na wartości odstające niż MSE/RMSE.
+# * **RMSE (Root Mean Squared Error - Pierwiastek Błędu Średniokwadratowego):** Jest to pierwiastek kwadratowy z MSE. Podobnie jak MAE, jest wyrażony w jednostkach zmiennej docelowej, co ułatwia interpretację ("model myli się średnio o *X* próbek"). Jednakże, z powodu podnoszenia błędów do kwadratu, RMSE jest bardziej wrażliwy na duże błędy (wartości odstające) niż MAE.
+# * **MAPE (Mean Absolute Percentage Error - Średni Bezwzględny Błąd Procentowy):** Wyraża średni błąd jako procent rzeczywistej wartości. Jest to miara względna, co może być pomocne do porównywania jakości modelu na różnych skalach wartości, ale ma problemy, gdy rzeczywiste wartości są bliskie zera lub równe zero. W naszym przypadku szerokość zakłócenia jest zawsze dodatnia, więc MAPE może być użyteczny, dając pojęcie, o jaki procent model się myli.
+#
+# **Mniej bezpośrednio interpretowalne (ale użyteczne):**
+#
+# * **MSE (Mean Squared Error - Błąd Średniokwadratowy):** Średnia kwadratów błędów. Jego jednostką jest kwadrat jednostki zmiennej docelowej (kwadrat liczby próbek), co utrudnia bezpośrednią interpretację w kontekście problemu. Jest jednak często używany jako funkcja kosztu podczas trenowania modeli.
+# * **R² (R-squared - Współczynnik determinacji):** Miara dopasowania modelu, wskazująca, jaki procent wariancji zmiennej zależnej jest wyjaśniany przez model. Wartość bliska 1 oznacza dobre dopasowanie, bliska 0 oznacza, że model nie wyjaśnia wariancji lepiej niż model stały (średnia), a wartości ujemne wskazują na bardzo słaby model. Jest to miara względna, ale jej interpretacja ("procent wyjaśnionej wariancji") jest mniej intuicyjna w kontekście błędu predykcji pojedynczego przypadku niż MAE/RMSE.
+#
+# **Wybór metryk M1 i M2:**
+#
+# Biorąc pod uwagę potrzebę zrozumienia, jak bardzo model myli się w przewidywaniu *liczby próbek* zakłócenia, najbardziej użyteczne wydają się metryki wyrażone w tej samej jednostce.
+#
+# 1.  **M1: MAE (Mean Absolute Error)** - Wybieram MAE jako pierwszą metrykę ze względu na jej prostą i bezpośrednią interpretację ("średnia pomyłka o *X* próbek") oraz mniejszą wrażliwość na potencjalne wartości odstające w szerokości zakłóceń w porównaniu do RMSE.
+# 2.  **M2: R² (Współczynnik determinacji)** - Wybieram R² jako drugą metrykę, ponieważ dostarcza informacji o ogólnej zdolności modelu do wyjaśnienia zmienności w danych, niezależnie od skali wartości. Pozwala ocenić, czy model wnosi jakąkolwiek wartość predykcyjną w porównaniu do prostego modelu przewidującego średnią. Mimo mniej bezpośredniej interpretacji błędu dla pojedynczego przypadku, jest standardową miarą jakości dopasowania w regresji.
+#
+# Alternatywnie, zamiast R², można by wybrać RMSE, aby mieć drugą metrykę w jednostkach oryginalnych, ale bardziej "karzącą" duże błędy. Wybór MAE i R² daje jednak dwie różne perspektywy oceny modelu: średni błąd bezwzględny i względną miarę dopasowania.
+
+# %% [markdown]
+# ### Zadanie 4.
+#
+# Do dalszych testów użyjemy następujących technik:
+# ```python
+# from sklearn import linear_model # LinearRegression
+# from sklearn import neighbors # KNeighborsRegressor
+# from sklearn.tree import DecisionTreeRegressor
+# from sklearn.neural_network import MLPRegressor
+# from sklearn.svm import SVR
+# ```
+# Przejrzyj dokumentację scikit-learn i napisz, jakie jeszcze dostępne tam i znane Ci metody mogłyby posłużyć do zbudowania modeli regresji.
+
+# %% [markdown]
+# ### Odpowiedź 4.
+#
+# Poza wymienionymi w zadaniu 5 metodami, w `scikit-learn` do budowy modeli regresji można wykorzystać m.in.:
+#
+# * **Inne modele liniowe:**
+#     * `Ridge`: Regresja grzbietowa (liniowa z regularyzacją L2).
+#     * `Lasso`: Regresja liniowa z regularyzacją L1 (przydatna do selekcji cech).
+#     * `ElasticNet`: Kombinacja regularyzacji L1 i L2.
+#     * `SGDRegressor`: Implementacja modeli liniowych (w tym regresji liniowej, SVM) trenowanych za pomocą stochastycznego spadku gradientu, efektywna dla dużych zbiorów danych.
+#     * `PassiveAggressiveRegressor`: Algorytm online learningu dla regresji.
+#     * `HuberRegressor`: Model liniowy odporny na wartości odstające.
+#     * `RANSACRegressor`: Model odporny na wartości odstające wykorzystujący algorytm RANSAC.
+#     * `TheilSenRegressor`: Estymator odporny na wartości odstające.
+#     * `BayesianRidge`: Bayesowska regresja grzbietowa.
+#     * `ARDRegression`: Automatyczne określanie istotności (Automatic Relevance Determination) - bayesowski model regresji.
+# * **Metody zespołowe (Ensemble Methods):**
+#     * `RandomForestRegressor`: Lasy losowe dla regresji (agregacja wielu drzew decyzyjnych).
+#     * `GradientBoostingRegressor`: Drzewa wzmacniane gradientowo.
+#     * `AdaBoostRegressor`: Adaptacyjne wzmacnianie dla regresji.
+#     * `ExtraTreesRegressor`: Ekstremalnie zrandomizowane drzewa dla regresji.
+#     * `HistGradientBoostingRegressor`: Implementacja wzmacniania gradientowego zoptymalizowana dla dużych zbiorów danych (wykorzystuje histogramy).
+# * **Procesy Gaussowskie:**
+#     * `GaussianProcessRegressor`: Regresja oparta na procesach Gaussowskich (model probabilistyczny).
+# * **Inne:**
+#     * `RadiusNeighborsRegressor`: Wariant k-NN, gdzie sąsiedztwo jest definiowane przez stały promień.
+#     * `IsotonicRegression`: Regresja izotoniczna (wymaga jednowymiarowych danych lub transformacji).
+
+# %% [markdown]
+# ### Zadanie 5.
+#
+# Porównaj metody wymienione w treści poprzedniego pytania (jeśli masz ochotę, możesz dodatkowo przetestować jeszcze inne) pod kątem M1 oraz M2 dla całego zbioru danych (bez podziału uczący-testujący). Użyj domyślnych wartości parametrów (jeśli masz ochotę, poeksperymentuj z doborem parametrów; użyj też nie-domyślnych wartości wtedy, kiedy uważasz, że domyślne wartości nie mają sensu w tym zastosowaniu lub są niepoprawne). Dla SVR porównaj kernel liniowy i RBF. Dla drzew decyzyjnych użyj `max_depth=2` (co się dzieje, kiedy nie ograniczymy głębokości?). Załącz dwa wykresy (jeden dla M1 i jeden dla M2) porównujące powyższe metody. Opisz wnioski.
+
+# %% [code]
+from sklearn.linear_model import LinearRegression
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.tree import DecisionTreeRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.svm import SVR
+from sklearn.metrics import mean_absolute_error, r2_score
+from sklearn.preprocessing import StandardScaler # Przyda się później, ale importujemy tu
+from sklearn.pipeline import make_pipeline       # Przyda się później, ale importujemy tu
+import time
+
+# Przygotowanie danych
+X = dane.iloc[:, :-1].values # Używamy .values do konwersji na NumPy array
+y = dane.iloc[:, -1].values
+
+# Definicja metryk M1 i M2
+M1_name = 'MAE'
+M1_func = mean_absolute_error
+M2_name = 'R^2'
+M2_func = r2_score
+
+# Słownik do przechowywania wyników
+results = {'Model': [], M1_name: [], M2_name: [], 'Czas (s)': []}
+
+# Funkcja do trenowania, predykcji i zapisu wyników
+def evaluate_model(model, name, X_train, y_train):
+    start_time = time.time()
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_train)
+    end_time = time.time()
+    m1_score = M1_func(y_train, y_pred)
+    m2_score = M2_func(y_train, y_pred)
+    results['Model'].append(name)
+    results[M1_name].append(m1_score)
+    results[M2_name].append(m2_score)
+    results['Czas (s)'].append(end_time - start_time)
+    print(f"{name}: {M1_name}={m1_score:.2f}, {M2_name}={m2_score:.2f}, Czas={end_time - start_time:.2f}s")
+
+# --- Testowanie modeli (bez skalowania na razie) ---
+print("--- Wyniki dla całego zbioru (bez podziału i bez skalowania) ---")
+
+# 1. Regresja Liniowa
+evaluate_model(LinearRegression(), 'LinearRegression', X, y)
+
+# 2. KNeighborsRegressor
+evaluate_model(KNeighborsRegressor(), 'KNN (default)', X, y)
+
+# 3. DecisionTreeRegressor (max_depth=2)
+evaluate_model(DecisionTreeRegressor(max_depth=2, random_state=42), 'Tree (depth=2)', X, y)
+
+# 3b. DecisionTreeRegressor (bez ograniczenia głębokości)
+dt_full = DecisionTreeRegressor(random_state=42)
+evaluate_model(dt_full, 'Tree (full)', X, y)
+print("Uwaga: Drzewo bez ograniczenia głębokości idealnie dopasowuje się do danych uczących (R^2=1.00, MAE=0.00), co jest oznaką przeuczenia.")
+
+# 4. MLPRegressor
+# Zwiększmy max_iter, żeby uniknąć ostrzeżenia o braku zbieżności
+evaluate_model(MLPRegressor(max_iter=1000, random_state=42, hidden_layer_sizes=(100,)), 'MLP (100)', X, y)
+# Dodatkowa, mniejsza sieć dla porównania
+evaluate_model(MLPRegressor(max_iter=1000, random_state=42, hidden_layer_sizes=(10,)), 'MLP (10)', X, y)
+
+
+# 5. SVR (linear kernel)
+evaluate_model(SVR(kernel='linear'), 'SVR (linear)', X, y)
+
+# 6. SVR (RBF kernel)
+evaluate_model(SVR(kernel='rbf'), 'SVR (rbf)', X, y)
+
+# Konwersja wyników do DataFrame
+results_df = pd.DataFrame(results)
+# Sortowanie dla lepszej wizualizacji
+results_df_sorted_m1 = results_df.sort_values(by=M1_name)
+results_df_sorted_m2 = results_df.sort_values(by=M2_name, ascending=False)
+
+# Wykresy porównawcze
+fig, axes = plt.subplots(1, 2, figsize=(18, 6))
+
+# Wykres dla M1 (MAE)
+sns.barplot(x=M1_name, y='Model', data=results_df_sorted_m1, ax=axes[0], palette='viridis')
+axes[0].set_title(f'Porównanie modeli - {M1_name} (im niżej, tym lepiej)')
+axes[0].set_xlabel(f'Średni Błąd Bezwzględny ({M1_name})')
+axes[0].set_ylabel('Model')
+
+# Wykres dla M2 (R^2)
+sns.barplot(x=M2_name, y='Model', data=results_df_sorted_m2, ax=axes[1], palette='viridis')
+axes[1].set_title(f'Porównanie modeli - {M2_name} (im wyżej, tym lepiej)')
+axes[1].set_xlabel(f'Współczynnik determinacji ({M2_name})')
+axes[1].set_ylabel('') # Ukrycie etykiety Y dla drugiego wykresu
+# Ustawienie limitów dla R^2, żeby lepiej pokazać różnice i uwzględnić potencjalne ujemne wartości
+min_r2 = min(0, results_df[M2_name].min()) # Najniższa wartość R2 lub 0
+axes[1].set_xlim(left=min_r2 - 0.05, right=1.05) # Ustawienie zakresu osi X
+
+plt.tight_layout()
+plt.savefig('zad5_metrics_comparison.png')
+plt.show()
+
+print("\nWyniki czasowe:")
+print(results_df[['Model', 'Czas (s)']].sort_values(by='Czas (s)', ascending=False))
+
+# %% [markdown]
+# **Wnioski z porównania modeli (Zadanie 5):**
+#
+# Porównano pięć podstawowych typów modeli regresyjnych (oraz warianty SVR i drzewa) na całym zbiorze danych, oceniając ich dopasowanie do danych uczących za pomocą metryk MAE i R².
+#
+# * **Drzewo Decyzyjne (pełne):** Zgodnie z oczekiwaniami, drzewo bez ograniczenia głębokości osiągnęło idealne dopasowanie do danych uczących (MAE=0.00, R²=1.00). Jest to klasyczny przykład **przeuczenia (*overfitting*)**, gdzie model zapamiętał dane uczące, ale prawdopodobnie nie będzie dobrze generalizował na nowe, niewidziane przypadki.
+# * **Drzewo Decyzyjne (głębokość=2):** Ograniczenie głębokości drzewa do 2 znacznie pogorszyło jego dopasowanie (najwyższe MAE, najniższe R² poza SVR(linear)). Model jest zbyt prosty, aby uchwycić złożoność danych (jest *underfitted*).
+# * **KNN (k-Nearest Neighbors):** Osiągnęło drugie najlepsze wyniki (po pełnym drzewie), z relatywnie niskim MAE i wysokim R² (około 0.84). Sugeruje to, że lokalne podobieństwo między przypadkami jest dobrym wskaźnikiem szerokości zakłócenia.
+# * **MLP (Sieci Neuronowe):** Wyniki MLP zależą od architektury. Sieć z 10 neuronami (MLP (10)) wypadła słabo, natomiast sieć ze 100 neuronami (MLP (100)) osiągnęła wyniki zbliżone do KNN, co wskazuje na jej zdolność do modelowania nieliniowości w danych. Czas trenowania był jednak znaczący.
+# * **SVR (Support Vector Regression):** Wersja z jądrem RBF (SVR (rbf)) uzyskała przyzwoite wyniki, lepsze niż regresja liniowa i proste drzewo, ale gorsze niż KNN i MLP (100). SVR z jądrem liniowym (SVR (linear)) wypadło bardzo słabo, uzyskując ujemne R², co oznacza, że model jest gorszy niż przewidywanie średniej wartości.
+# * **Regresja Liniowa:** Model liniowy uzyskał słabe wyniki (niskie R², wysokie MAE w porównaniu do KNN/MLP(100)/SVR(rbf)), co sugeruje, że zależności w danych są silnie nieliniowe i prosty model liniowy nie jest w stanie ich dobrze zamodelować.
+#
+# **Czas trenowania:** Najszybsze były modele liniowe i drzewa decyzyjne. KNN był umiarkowanie szybki. SVR (szczególnie z RBF) i MLP wymagały znacznie więcej czasu na trening.
+#
+# Na tym etapie (ocena na danych treningowych), najlepsze dopasowanie (ignorując przeuczone pełne drzewo) wykazują KNN i MLP (100). Słabość modelu liniowego i prostego drzewa wskazuje na nieliniowy charakter problemu. Słaby wynik SVR z jądrem liniowym dodatkowo to potwierdza.
+
+# %% [markdown]
+# ### Zadanie 6.
+#
+# Które z metod wykorzystanych w poprzednim zadaniu wymagają normalizacji/standaryzacji danych i nie powinniśmy ich używać na surowych danych? Dlaczego tak jest, w czym tkwi niebezpieczeństwo? Rozszerz wykresy z poprzedniego zadania o wyniki poprawnie użytych metod oraz zinterpretuj efekt wykorzystania normalizacji.
+
+# %% [markdown]
+# ### Odpowiedź 6.
+#
+# **Metody wymagające normalizacji/standaryzacji:**
+#
+# Spośród metod testowanych w poprzednim zadaniu, skalowania (normalizacji lub standaryzacji) wymagają:
+#
+# 1.  **KNeighborsRegressor (KNN):** Algorytm ten działa w oparciu o odległości między punktami w przestrzeni cech. Jeśli atrybuty mają różne skale (jak zaobserwowano w Zadaniu 2), atrybuty o większych zakresach wartości będą miały nieproporcjonalnie duży wpływ na obliczaną odległość, effectively ignorując atrybuty o mniejszych zakresach. Standaryzacja (np. do zerowej średniej i jednostkowej wariancji) lub normalizacja (np. do zakresu [0, 1]) zapewnia, że wszystkie atrybuty mają porównywalny wkład w metrykę odległości.
+# 2.  **MLPRegressor (Sieci Neuronowe):** Sieci neuronowe, szczególnie trenowane metodami gradientowymi, są wrażliwe na skalę danych wejściowych. Duże wartości wejściowe mogą prowadzić do dużych wartości gradientów, co może destabilizować proces uczenia lub spowalniać zbieżność. Ponadto, funkcje aktywacji (np. sigmoidalna, tanh) działają najlepiej dla wartości wejściowych w określonym zakresie (często blisko zera). Standaryzacja danych pomaga utrzymać wartości wejściowe i gradienty w rozsądnych zakresach, co przyspiesza i stabilizuje trening.
+# 3.  **SVR (Support Vector Regression):** Szczególnie SVR z jądrami takimi jak RBF (które są oparte na odległościach) jest wrażliwe na skalę atrybutów z tych samych powodów co KNN. Nawet SVR z jądrem liniowym może skorzystać na skalowaniu, gdyż wpływa to na proces optymalizacji (znajdowanie hiperpłaszczyzny). Regularyzacja w SVR również działa bardziej spójnie, gdy cechy są na podobnej skali.
+#
+# **Metody mniej wrażliwe lub niewrażliwe na skalowanie:**
+#
+# * **LinearRegression:** Chociaż skalowanie może pomóc w interpretacji współczynników i poprawić stabilność numeryczną w niektórych przypadkach (np. przy stosowaniu regularyzacji jak w Ridge/Lasso), sama regresja liniowa nie *wymaga* skalowania do poprawnego działania. Skalowanie nie zmienia zasadniczo jej zdolności predykcyjnych (wynik R² będzie taki sam).
+# * **DecisionTreeRegressor:** Drzewa decyzyjne działają poprzez podział przestrzeni cech na podstawie progów dla poszczególnych atrybutów. Decyzje o podziale są podejmowane dla każdego atrybutu niezależnie, więc skala wartości nie wpływa na strukturę drzewa ani na jego predykcje. Dlatego drzewa i metody na nich oparte (jak Random Forest) generalnie nie wymagają skalowania danych.
+#
+# **Niebezpieczeństwo braku skalowania:** Używanie metod wrażliwych na skalę (KNN, MLP, SVR) na nieskalowanych danych może prowadzić do:
+# * Zdominowania modelu przez atrybuty o dużych wartościach.
+# * Wolniejszej lub niestabilnej zbieżności algorytmów uczących (zwłaszcza dla MLP).
+# * Suboptymalnych wyników (gorszej jakości predykcji), ponieważ model nie wykorzystuje w pełni informacji zawartych w atrybutach o mniejszych skalach.
+#
+# **Rozszerzenie eksperymentu o skalowanie:**
+
+# %% [code]
+# Ponowne trenowanie modeli wymagających skalowania z użyciem StandardScaler
+print("\n--- Wyniki dla całego zbioru (bez podziału, z użyciem StandardScaler dla KNN, MLP, SVR) ---")
+
+# Skaler
+scaler = StandardScaler()
+
+# 2s. KNN ze skalowaniem
+model_knn_scaled = make_pipeline(StandardScaler(), KNeighborsRegressor())
+evaluate_model(model_knn_scaled, 'KNN (scaled)', X, y)
+
+# 4s. MLPRegressor ze skalowaniem (100 neuronów)
+model_mlp100_scaled = make_pipeline(StandardScaler(), MLPRegressor(max_iter=1000, random_state=42, hidden_layer_sizes=(100,)))
+evaluate_model(model_mlp100_scaled, 'MLP (100, scaled)', X, y)
+
+# 4b_s. MLPRegressor ze skalowaniem (10 neuronów)
+model_mlp10_scaled = make_pipeline(StandardScaler(), MLPRegressor(max_iter=1000, random_state=42, hidden_layer_sizes=(10,)))
+evaluate_model(model_mlp10_scaled, 'MLP (10, scaled)', X, y)
+
+# 5s. SVR (linear kernel) ze skalowaniem
+model_svr_linear_scaled = make_pipeline(StandardScaler(), SVR(kernel='linear'))
+evaluate_model(model_svr_linear_scaled, 'SVR (linear, scaled)', X, y)
+
+# 6s. SVR (RBF kernel) ze skalowaniem
+model_svr_rbf_scaled = make_pipeline(StandardScaler(), SVR(kernel='rbf'))
+evaluate_model(model_svr_rbf_scaled, 'SVR (rbf, scaled)', X, y)
+
+# Aktualizacja DataFrame i wykresów
+results_df_scaled = pd.DataFrame(results)
+results_df_scaled_sorted_m1 = results_df_scaled.sort_values(by=M1_name)
+results_df_scaled_sorted_m2 = results_df_scaled.sort_values(by=M2_name, ascending=False)
+
+# Wykresy porównawcze (teraz z uwzględnieniem skalowania)
+fig, axes = plt.subplots(1, 2, figsize=(18, 7)) # Zwiększona wysokość
+
+# Wykres dla M1 (MAE)
+sns.barplot(x=M1_name, y='Model', data=results_df_scaled_sorted_m1, ax=axes[0], palette='viridis')
+axes[0].set_title(f'Porównanie modeli - {M1_name} (im niżej, tym lepiej)')
+axes[0].set_xlabel(f'Średni Błąd Bezwzględny ({M1_name})')
+axes[0].set_ylabel('Model')
+
+# Wykres dla M2 (R^2)
+sns.barplot(x=M2_name, y='Model', data=results_df_scaled_sorted_m2, ax=axes[1], palette='viridis')
+axes[1].set_title(f'Porównanie modeli - {M2_name} (im wyżej, tym lepiej)')
+axes[1].set_xlabel(f'Współczynnik determinacji ({M2_name})')
+axes[1].set_ylabel('') # Ukrycie etykiety Y
+min_r2_scaled = min(0, results_df_scaled[M2_name].min())
+axes[1].set_xlim(left=min_r2_scaled - 0.05, right=1.05)
+
+plt.tight_layout()
+plt.savefig('zad6_metrics_comparison_scaled.png')
+plt.show()
+
+print("\nWyniki czasowe (ze skalowaniem):")
+print(results_df_scaled[['Model', 'Czas (s)']].sort_values(by='Czas (s)', ascending=False))
+
+# %% [markdown]
+# **Interpretacja efektu normalizacji (Zadanie 6):**
+#
+# Po zastosowaniu standaryzacji (`StandardScaler`) dla metod KNN, MLP i SVR, obserwujemy znaczące zmiany w ich wynikach:
+#
+# * **KNN:** Zarówno MAE, jak i R² uległy **znacznej poprawie** po przeskalowaniu danych. Wartość MAE spadła, a R² wzrosło, plasując przeskalowany KNN jako jeden z najlepszych modeli (zaraz po przeuczonym drzewie i MLP(100, scaled)). Potwierdza to wrażliwość KNN na skalę atrybutów i konieczność skalowania.
+# * **MLP:** Sieci neuronowe również **znacząco skorzystały** na skalowaniu. Model MLP (100, scaled) osiągnął najlepsze wyniki R² (ponad 0.90) i bardzo niskie MAE spośród modeli podlegających generalizacji (nie licząc przeuczonego drzewa). Co ciekawe, nawet mniejsza sieć MLP (10, scaled) po skalowaniu uzyskała znacznie lepsze wyniki niż jej odpowiednik na surowych danych i stała się konkurencyjna.
+# * **SVR:** Efekt skalowania był **dramatyczny** dla obu kerneli SVR.
+#     * **SVR (linear, scaled):** Wynik poprawił się diametralnie - z bardzo słabego (ujemne R²) do przyzwoitego, porównywalnego z SVR (rbf) bez skalowania.
+#     * **SVR (rbf, scaled):** Po skalowaniu model ten stał się jednym z **najlepszych**, osiągając wyniki MAE i R² porównywalne, a nawet nieco lepsze niż KNN (scaled) i MLP (100, scaled). To pokazuje, jak kluczowe jest skalowanie dla SVR z jądrem RBF.
+#
+# **Podsumowując:** Standaryzacja danych miała kluczowy, pozytywny wpływ na jakość dopasowania modeli KNN, MLP i SVR, potwierdzając ich wrażliwość na skalę atrybutów. Po przeskalowaniu, modele SVR (rbf) i MLP (100) dołączyły do KNN jako najlepiej dopasowane do danych uczących (nie licząc przeuczonego drzewa). SVR z jądrem liniowym również znacząco zyskał, choć nadal pozostaje w tyle za modelami nieliniowymi.
+
+# %% [markdown]
+# ### Zadanie 7.
+#
+# Wybierz Twoim zdaniem najlepszy model regresji. Napisz, na jakiej podstawie go wybrałeś/wybrałaś i co nam daje takie kryterium "najlepszości". Załącz wykres, w którym na osi poziomej są faktyczne wartości zmiennej zależnej, a na osi pionowej to, co przewiduje wybrany model regresji. Postaraj się, żeby wykres był czytelny i przydatny (zamiast zaproponowanego wykresu możesz przygotować inny, który lepiej pokaże błędy popełniane przez model na poszczególnych przypadkach) oraz opisz wnioski z tej wizualizacji.
+
+# %% [markdown]
+# ### Odpowiedź 7.
+#
+# **Wybór najlepszego modelu:**
+#
+# Na podstawie wyników uzyskanych na **całym zbiorze danych** (ocena dopasowania do danych treningowych, z uwzględnieniem skalowania dla odpowiednich modeli), najlepsze wyniki pod względem obu metryk (najniższe MAE i najwyższe R², pomijając przeuczone drzewo) osiągnęły modele:
+#
+# 1.  `MLP (100, scaled)`
+# 2.  `SVR (rbf, scaled)`
+# 3.  `KNN (scaled)`
+#
+# Wybieram **`SVR (rbf, scaled)`** jako "najlepszy" model na tym etapie.
+#
+# **Uzasadnienie wyboru:**
+# * **Kryterium:** Wybór opiera się na **najlepszym kompromisie między MAE a R²** na danych treningowych, przy jednoczesnym uwzględnieniu potencjalnej złożoności modelu. SVR (rbf, scaled) osiągnął minimalnie niższe MAE niż MLP (100, scaled) i porównywalne R². KNN (scaled) był minimalnie gorszy pod względem obu metryk.
+# * **Co daje to kryterium:** Wybór modelu, który najlepiej *pasuje* do danych, które widział podczas treningu. Niskie MAE oznacza mały średni błąd w jednostkach przewidywanej zmiennej, a wysokie R² oznacza, że model dobrze wyjaśnia zmienność w tych danych. **Jednakże,** jest to ocena optymistyczna, ponieważ nie mierzy zdolności generalizacji modelu na nowych danych (co zostanie ocenione przez kroswalidację w Zadaniu 9). Istnieje ryzyko, że model wybrany w ten sposób jest przeuczony.
+#
+# **Wizualizacja predykcji vs wartości rzeczywiste:**
+
+# %% [code]
+# Predykcje wybranego modelu (SVR rbf scaled) na całym zbiorze
+best_model = model_svr_rbf_scaled # Przypisanie dla przejrzystości
+y_pred_best = best_model.predict(X)
+
+# Wykres Actual vs Predicted
+plt.figure(figsize=(8, 8))
+plt.scatter(y, y_pred_best, alpha=0.5)
+plt.plot([y.min(), y.max()], [y.min(), y.max()], '--r', linewidth=2) # Linia y=x (idealne przewidywania)
+plt.xlabel('Rzeczywista szerokość zakłócenia (liczba próbek)')
+plt.ylabel('Przewidywana szerokość zakłócenia (liczba próbek)')
+plt.title(f'Rzeczywiste vs Przewidywane wartości dla SVR (rbf, scaled)\nMAE={M1_func(y, y_pred_best):.2f}, R^2={M2_func(y, y_pred_best):.2f}')
+plt.grid(True)
+plt.tight_layout()
+plt.savefig('zad7_actual_vs_predicted.png')
+plt.show()
+
+# %% [markdown]
+# **Wnioski z wizualizacji (Zadanie 7):**
+#
+# Wykres rozrzutu porównujący rzeczywiste wartości szerokości zakłócenia (oś X) z wartościami przewidywanymi przez model SVR z jądrem RBF po skalowaniu (oś Y) pokazuje, że:
+# * Punkty generalnie układają się wzdłuż linii `y=x` (czerwona linia przerywana), co wskazuje na dobre ogólne dopasowanie modelu do danych treningowych, zgodnie z wysoką wartością R².
+# * Rozrzut punktów wokół linii `y=x` jest stosunkowo niewielki dla większości przypadków, co jest spójne z niską wartością MAE.
+# * Wydaje się, że model ma tendencję do nieco **zaniżania predykcji dla największych wartości** rzeczywistych (punkty w prawym górnym rogu wykresu często leżą poniżej czerwonej linii).
+# * Dla mniejszych wartości rzeczywistych (bliżej początku osi), punkty są gęściej skupione wokół linii `y=x`, co sugeruje lepszą precyzję modelu w tym zakresie.
+# * Nie widać wyraźnych systematycznych błędów (np. stałego przeszacowania lub niedoszacowania w całym zakresie), poza wspomnianą tendencją dla dużych wartości.
+#
+# Ogólnie, wizualizacja potwierdza dobre dopasowanie wybranego modelu do danych, na których był trenowany, ale wskazuje na potencjalne problemy z predykcją ekstremalnie dużych szerokości zakłóceń.
+
+# %% [markdown]
+# ### Zadanie 8.
+#
+# Który z wytworzonych modeli regresji jest najlepiej interpretowalny dla człowieka? Spróbuj go zwizualizować (sam model) i zinterpretuj, jak on działa (jego "wiedzę"); możesz tutaj wykorzystać specjalnie dobrane wartości parametrów, żeby wytworzyć jeszcze lepiej interpretowalny model bez dużej utraty jego jakości. Zostaw sobie na przyszłość komentarze w kodzie; ten model i dane będą jeszcze używane na ostatnich zajęciach.
+
+# %% [markdown]
+# ### Odpowiedź 8.
+#
+# **Najlepiej interpretowalny model:**
+#
+# Spośród testowanych modeli, **`DecisionTreeRegressor` (Drzewo Decyzyjne Regresyjne)**, szczególnie z ograniczoną głębokością, jest generalnie uważane za najlepiej interpretowalne dla człowieka. Jego działanie opiera się na serii prostych reguł decyzyjnych (podziałów) bazujących na wartościach poszczególnych atrybutów. Strukturę drzewa można łatwo zwizualizować i prześledzić ścieżkę decyzyjną dla danego przypadku.
+#
+# Regresja liniowa (`LinearRegression`) również jest stosunkowo interpretowalna – jej działanie opisują współczynniki przypisane do każdego atrybutu (pokazujące, jak zmiana wartości atrybutu wpływa na predykcję, przy założeniu liniowości i niezależności). Jednak przy dużej liczbie atrybutów (118 w naszym przypadku) analiza wszystkich współczynników może być uciążliwa.
+#
+# Modele takie jak KNN, SVR (szczególnie z nieliniowym jądrem) i MLP są znacznie trudniejsze do bezpośredniej interpretacji ("modele czarnej skrzynki").
+#
+# **Wizualizacja i interpretacja Drzewa Decyzyjnego (max_depth=3):**
+#
+# Wykorzystamy drzewo o głębokości 3 (`max_depth=3`) jako kompromis między prostotą (interpretowalnością) a jakością (lepszą niż `max_depth=2`, ale nadal znacznie gorszą niż modele złożone).
+
+# %% [code]
+from sklearn.tree import plot_tree
+import matplotlib.pyplot as plt
+
+# Trenowanie drzewa o głębokości 3
+dt_interpretable = DecisionTreeRegressor(max_depth=3, random_state=42)
+dt_interpretable.fit(X, y) # Trenowanie na oryginalnych danych
+
+# Ocena jakości (dla porównania)
+y_pred_dt3 = dt_interpretable.predict(X)
+mae_dt3 = mean_absolute_error(y, y_pred_dt3)
+r2_dt3 = r2_score(y, y_pred_dt3)
+print(f"DecisionTreeRegressor (max_depth=3): MAE={mae_dt3:.2f}, R^2={r2_dt3:.2f}")
+
+# Wizualizacja drzewa
+plt.figure(figsize=(25, 15)) # Duży rozmiar dla czytelności
+plot_tree(dt_interpretable,
+          feature_names=dane.columns[:-1], # Nazwy atrybutów
+          filled=True,
+          rounded=True,
+          precision=1, # Liczba miejsc po przecinku w wartościach
+          fontsize=10)
+plt.title("Drzewo Decyzyjne Regresyjne (max_depth=3)")
+plt.savefig('zad8_decision_tree_depth3.png')
+plt.show()
+
+# %% [markdown]
+# **Interpretacja działania drzewa (max_depth=3):**
+#
+# Wizualizacja drzewa pokazuje ścieżki decyzyjne prowadzące do predykcji szerokości zakłócenia (`value` w liściach). Drzewo dzieli dane na podstawie wartości wybranych atrybutów:
+#
+# 1.  **Korzeń (pierwszy podział):** Najważniejszy podział odbywa się na podstawie atrybutu `stat49`. Jeśli `stat49 <= 0.065`, przypadek trafia do lewego poddrzewa, w przeciwnym razie do prawego. Ten pierwszy podział już znacząco różnicuje średnią przewidywaną wartość (niższa dla lewego poddrzewa, wyższa dla prawego).
+# 2.  **Kolejne podziały:** W kolejnych węzłach wykorzystywane są inne atrybuty, takie jak `diff`, `stat34`, `stat32`, `maxmiddle`. Każdy podział dalej dzieli dane, prowadząc do liści, które reprezentują grupy przypadków o podobnej przewidywanej szerokości zakłócenia.
+# 3.  **Liście:** Każdy liść zawiera ostateczną predykcję (`value`) dla przypadków, które do niego trafiły. Jest to średnia wartość zmiennej decyzyjnej (`y`) dla przypadków uczących w tym liściu. Widzimy, że różne ścieżki prowadzą do różnych przewidywanych szerokości (np. od ~190 do ~1597 próbek). Parametr `samples` pokazuje, ile przypadków treningowych trafiło do danego węzła/liścia, a `mse` pokazuje błąd średniokwadratowy w danym węźle.
+#
+# **"Wiedza" modelu:** To proste drzewo nauczyło się, że głównie atrybuty `stat49`, `diff`, `stat34`, `stat32` i `maxmiddle` (w tej kolejności ważności dla pierwszych poziomów) są najbardziej użyteczne do zgrubnego oszacowania szerokości zakłócenia. Model tworzy hierarchiczne reguły - np. "jeśli `stat49` jest małe ORAZ `diff` jest małe ORAZ `stat34` jest małe, to przewiduj szerokość ~190". Jest to model bardzo uproszczony (tylko 8 liści/predykcji), stąd jego stosunkowo słaba jakość w porównaniu do bardziej złożonych modeli, ale jego działanie jest łatwe do zrozumienia dla człowieka.
+
+# %% [markdown]
+# ### Zadanie 9.
+#
+# Oceń zdolność predykcji modeli tego samego rodzaju (te same algorytmy i wartości parametrów), co utworzone wcześniej, używając 10-krotnej kroswalidacji (uwaga). Sporządź i załącz dwa analogiczne wykresy (M1 i M2; możesz pokazać obok siebie wartości tych metryk dla całego zbioru i średnie z kroswalidacji). Czy te rodzaje modeli, które najlepiej sprawdzały się dla całego zbioru danych to te same rodzaje, które najlepiej przewidują wartości atrybutu decyzyjnego na zbiorze testowym? Przed wysłaniem całego quizu przejrzyj jeszcze raz listę podpowiedzi z pytania 1.
+
+# %% [code]
+from sklearn.model_selection import KFold, cross_val_score
+from sklearn.metrics import make_scorer
+
+# Ustawienie kroswalidacji
+n_splits = 10
+kf = KFold(n_splits=n_splits, shuffle=True, random_state=42)
+
+# Definicja scorerów dla cross_val_score
+# Musimy użyć 'neg_mean_absolute_error', bo cross_val_score maksymalizuje; wynik odwrócimy
+scorers = {
+    M1_name: make_scorer(M1_func, greater_is_better=False), # MAE - im mniej tym lepiej
+    M2_name: make_scorer(M2_func)                          # R^2 - im więcej tym lepiej
+}
+
+# Słownik do przechowywania średnich wyników kroswalidacji
+cv_results = {'Model': [], f'{M1_name}_CV': [], f'{M2_name}_CV': []}
+
+# Funkcja do przeprowadzania i zapisywania wyników kroswalidacji
+def evaluate_cv(model, name, X, y, cv_splitter, scoring_dict):
+    print(f"Kroswalidacja dla: {name}")
+    start_time = time.time()
+    # Obliczenie obu metryk w jednym przebiegu CV jest trudniejsze wprost z cross_val_score
+    # Użyjemy cross_val_score osobno dla każdej metryki
+    try:
+        m1_scores = cross_val_score(model, X, y, cv=cv_splitter, scoring=scoring_dict[M1_name])
+        m2_scores = cross_val_score(model, X, y, cv=cv_splitter, scoring=scoring_dict[M2_name])
+        end_time = time.time()
+
+        # Uśrednienie i odwrócenie znaku dla MAE
+        mean_m1 = -np.mean(m1_scores)
+        mean_m2 = np.mean(m2_scores)
+
+        cv_results['Model'].append(name)
+        cv_results[f'{M1_name}_CV'].append(mean_m1)
+        cv_results[f'{M2_name}_CV'].append(mean_m2)
+        print(f"  Średnie CV: {M1_name}={mean_m1:.2f}, {M2_name}={mean_m2:.2f}, Czas={end_time - start_time:.2f}s")
+    except Exception as e:
+        print(f"  Błąd podczas kroswalidacji dla {name}: {e}")
+        cv_results['Model'].append(name)
+        cv_results[f'{M1_name}_CV'].append(np.nan)
+        cv_results[f'{M2_name}_CV'].append(np.nan)
+
+
+# --- Przeprowadzenie kroswalidacji dla wszystkich modeli ---
+
+# Modele bez skalowania
+evaluate_cv(LinearRegression(), 'LinearRegression', X, y, kf, scorers)
+evaluate_cv(DecisionTreeRegressor(max_depth=2, random_state=42), 'Tree (depth=2)', X, y, kf, scorers)
+# Uwaga: Pełne drzewo prawdopodobnie nadal będzie przeuczone, ale dla kompletności:
+evaluate_cv(DecisionTreeRegressor(random_state=42), 'Tree (full)', X, y, kf, scorers)
+
+# Modele wymagające skalowania (używamy pipeline)
+evaluate_cv(make_pipeline(StandardScaler(), KNeighborsRegressor()), 'KNN (scaled)', X, y, kf, scorers)
+evaluate_cv(make_pipeline(StandardScaler(), MLPRegressor(max_iter=1000, random_state=42, hidden_layer_sizes=(100,))), 'MLP (100, scaled)', X, y, kf, scorers)
+evaluate_cv(make_pipeline(StandardScaler(), MLPRegressor(max_iter=1000, random_state=42, hidden_layer_sizes=(10,))), 'MLP (10, scaled)', X, y, kf, scorers)
+evaluate_cv(make_pipeline(StandardScaler(), SVR(kernel='linear')), 'SVR (linear, scaled)', X, y, kf, scorers)
+evaluate_cv(make_pipeline(StandardScaler(), SVR(kernel='rbf')), 'SVR (rbf, scaled)', X, y, kf, scorers)
+
+# Porównanie z modelami bez skalowania (dla których skalowanie jest konieczne) - dla ilustracji
+print("\n--- Kroswalidacja dla modeli wrażliwych na skalę, ale BEZ skalowania (dla porównania) ---")
+evaluate_cv(KNeighborsRegressor(), 'KNN (default)', X, y, kf, scorers)
+evaluate_cv(MLPRegressor(max_iter=1000, random_state=42, hidden_layer_sizes=(100,)), 'MLP (100)', X, y, kf, scorers)
+evaluate_cv(MLPRegressor(max_iter=1000, random_state=42, hidden_layer_sizes=(10,)), 'MLP (10)', X, y, kf, scorers)
+evaluate_cv(SVR(kernel='linear'), 'SVR (linear)', X, y, kf, scorers)
+evaluate_cv(SVR(kernel='rbf'), 'SVR (rbf)', X, y, kf, scorers)
+
+
+# Połączenie wyników treningowych i CV
+cv_results_df = pd.DataFrame(cv_results)
+comparison_df = pd.merge(results_df_scaled, cv_results_df, on='Model', how='left')
+
+# Przygotowanie danych do wykresów porównawczych (trening vs CV)
+plot_data_m1 = comparison_df[['Model', M1_name, f'{M1_name}_CV']].melt(id_vars='Model', var_name='Metric_Type', value_name=M1_name)
+plot_data_m2 = comparison_df[['Model', M2_name, f'{M2_name}_CV']].melt(id_vars='Model', var_name='Metric_Type', value_name=M2_name)
+
+# Wykresy porównawcze (Trening vs Kroswalidacja)
+fig, axes = plt.subplots(1, 2, figsize=(18, 8)) # Zwiększona wysokość
+
+# Wykres dla M1 (MAE)
+sns.barplot(x=M1_name, y='Model', hue='Metric_Type', data=plot_data_m1.sort_values(by=M1_name), ax=axes[0], palette='coolwarm')
+axes[0].set_title(f'{M1_name}: Wynik na całym zbiorze vs Średnia z 10-krotnej CV')
+axes[0].set_xlabel(f'Średni Błąd Bezwzględny ({M1_name}) (im niżej, tym lepiej)')
+axes[0].set_ylabel('Model')
+axes[0].legend(title='Typ Metryki')
+
+# Wykres dla M2 (R^2)
+sns.barplot(x=M2_name, y='Model', hue='Metric_Type', data=plot_data_m2.sort_values(by=M2_name, ascending=False), ax=axes[1], palette='coolwarm')
+axes[1].set_title(f'{M2_name}: Wynik na całym zbiorze vs Średnia z 10-krotnej CV')
+axes[1].set_xlabel(f'Współczynnik determinacji ({M2_name}) (im wyżej, tym lepiej)')
+axes[1].set_ylabel('') # Ukrycie etykiety Y
+min_r2_comp = min(0, plot_data_m2[M2_name].min())
+axes[1].set_xlim(left=min_r2_comp - 0.05, right=1.05)
+axes[1].legend(title='Typ Metryki')
+
+
+plt.tight_layout()
+plt.savefig('zad9_train_vs_cv_comparison.png')
+plt.show()
+
+# %% [markdown]
+# **Wnioski z kroswalidacji (Zadanie 9):**
+#
+# Przeprowadzenie 10-krotnej kroswalidacji pozwala ocenić, jak dobrze modele generalizują na niewidziane wcześniej dane, co jest znacznie bardziej wiarygodną miarą ich rzeczywistej zdolności predykcyjnej niż ocena na całym zbiorze treningowym.
+#
+# * **Porównanie wyników Trening vs CV:** Dla większości modeli obserwujemy spadek jakości (wyższe MAE_CV, niższe R²_CV) w kroswalidacji w porównaniu do wyników na całym zbiorze. Jest to oczekiwane, ponieważ modele są teraz oceniane na danych, których nie użyły bezpośrednio do treningu w danym kroku walidacji.
+# * **Przeuczenie (*Overfitting*):** Różnica między wynikiem treningowym a wynikiem CV jest miarą przeuczenia.
+#     * **Drzewo decyzyjne (pełne):** Wykazuje ekstremalne przeuczenie. Idealne wyniki na zbiorze treningowym (R²=1.00) spadają do bardzo niskich, wręcz ujemnych wartości R² w kroswalidacji, a MAE znacząco rośnie. Potwierdza to, że model zapamiętał dane treningowe i nie generalizuje.
+#     * **KNN (scaled):** Również wykazuje pewien stopień przeuczenia – R² spada z ~0.85 do ~0.60, a MAE rośnie. Mimo to, jego wyniki w CV są nadal jednymi z lepszych.
+#     * **MLP (100, scaled):** Pokazuje znaczące przeuczenie. R² spada z >0.90 do okolic 0.70.
+#     * **SVR (rbf, scaled):** Ten model również jest przeuczony, R² spada z ~0.90 do około 0.72, ale wydaje się generalizować nieco lepiej niż MLP(100, scaled) i KNN(scaled) w tym eksperymencie, osiągając najwyższe R²_CV i najniższe MAE_CV.
+#     * **Modele proste (LinearRegression, Tree(depth=2)):** Wykazują mniejszą różnicę między wynikami treningowymi a CV, co jest typowe dla modeli o mniejszej złożoności (mniejsza skłonność do przeuczania), ale ich ogólna jakość (zarówno treningowa, jak i CV) jest niska.
+#     * **Modele bez skalowania (wrażliwe na skalę):** Ich wyniki w CV są generalnie bardzo słabe, co ponownie podkreśla konieczność skalowania.
+#
+# **Najlepsze modele w kroswalidacji:**
+#
+# Biorąc pod uwagę średnie wyniki z 10-krotnej kroswalidacji, **najlepszą zdolność predykcji** na zbiorze testowym wykazują:
+#
+# 1.  **`SVR (rbf, scaled)`:** Najwyższe średnie R² (~0.72) i najniższe średnie MAE (~119).
+# 2.  **`MLP (100, scaled)`:** Drugie miejsce, z R² ~0.70 i MAE ~126.
+# 3.  **`KNN (scaled)`:** Trzecie miejsce, z R² ~0.60 i MAE ~140.
+#
+# **Porównanie rankingów:**
+#
+# Tak, **rodzaje modeli**, które najlepiej sprawdzały się na całym zbiorze (poza przeuczonym drzewem), czyli SVR(rbf, scaled), MLP(100, scaled) i KNN(scaled), okazały się również **najlepsze w kroswalidacji**, chociaż ich dokładna kolejność i bezwzględne wyniki uległy zmianie. SVR (rbf, scaled) utrzymał swoją pozycję jako potencjalnie najlepszy model pod względem generalizacji, podczas gdy MLP (100, scaled) i KNN (scaled), mimo dobrego dopasowania do danych treningowych, wykazały większy spadek jakości w CV (większe przeuczenie). Modele, które były słabe na całym zbiorze (liniowy, proste drzewo), pozostały słabe również w kroswalidacji.
+
+```python
